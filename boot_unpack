@@ -1,0 +1,36 @@
+#!/bin/bash
+
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
+fail() {
+	echo "$1"
+    exit 1
+}
+
+[ $# -eq 0 ] && fail "Usage: boot_unpack <path_to_img>"
+[ -z "$1" ] && fail "Usage: boot_unpack <path_to_img>"
+[ ! -f "$1" ] && fail "File not found"
+
+filename=$(basename "$1")
+if [ -z "$2" ];
+then
+	directory="${filename%.*}"
+else
+	directory="$2"
+fi
+
+rm -r -f $directory
+rbootimg --unpack "$1" --output $directory
+echo " Preparing ramdisk..."
+cd $directory
+cp ./ram_disk.gz ./ram_disk_orig.gz
+gunzip ./ram_disk.gz
+mkdir ramdisk
+cd ramdisk
+cpio -i < ../ram_disk
+rm -r -f ../ram_disk
+cd ..
+mv ramdisk ram_disk

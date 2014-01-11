@@ -1,0 +1,32 @@
+#!/bin/bash
+USAGE_HELP="Usage: dumchar_parse <dumchar_info_file> <part_name> <column> (Size/StartAddr/Type/MapTo)"
+fail() {
+	echo "$1"
+    exit 1
+}
+
+[ $# -eq 0 ] && fail "$USAGE_HELP"
+[ -z "$1" ] && fail "$USAGE_HELP"
+[ -z "$2" ] && fail "$USAGE_HELP"
+[ -z "$3" ] && fail "$USAGE_HELP"
+[ ! -f "$1" ] && fail "File '$1' not found"
+
+INFO=`cat "$1" | grep "$2 "`
+[ -z "$INFO" ] && fail "There is no partition called '$2'"
+
+shopt -s nocasematch
+if [[ "$3" == "Size" ]]; then
+	printf "%d" `echo "$INFO" | awk '{print $2}'`
+	exit 0
+else if [[ "$3" == "StartAddr" ]]; then
+	printf "%d" `echo "$INFO" | awk '{print $3}'`
+	exit 0
+else if [[ "$3" == "Type" ]]; then
+	printf "%d" `echo "$INFO" | awk '{print $4}'`
+	exit 0
+else if [[ "$3" == "MapTo" ]]; then
+	echo "$INFO" | awk '{print $5}'
+	exit 0
+fi fi fi fi
+shopt -u nocasematch
+fail "There are only [Size StartAddr Type MapTo] columns!"

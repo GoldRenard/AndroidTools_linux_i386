@@ -1,0 +1,51 @@
+#!/bin/bash
+# Файл устанавливает атрибуты (права, владельца, группу) и ссылки согласно файлу с инфой
+
+USAGE_HELP="Usage: rom_ptouch <directory> <info_file>"
+fail() {
+	echo "$1"
+    exit 1
+}
+
+[ $# -eq 0 ] && fail "$USAGE_HELP"
+[ -z "$1" ] && fail "$USAGE_HELP"
+[ -z "$2" ] && fail "$USAGE_HELP"
+
+export ROOT_PATH=$1
+
+set_perm_recursive() {
+	uID=$1
+	gID=$2
+	dMODE=$3
+	fMODE=$4
+	while [ "$5" != "" ]; do
+		chown -R $uID:$gID "${ROOT_PATH}${5}"
+		find "${ROOT_PATH}${5}" -type d -exec chmod $dMODE {} \;
+		find "${ROOT_PATH}${5}" -type f -exec chmod $fMODE {} \;
+		shift;
+	done;
+}
+
+set_perm() {
+	uID=$1
+	gID=$2
+	MODE=$3
+	while [ "$4" != "" ]; do
+		chown $uID:$gID "${ROOT_PATH}${4}"
+		chmod $MODE "${ROOT_PATH}${4}"
+		shift;
+	done;
+}
+
+symlink() {
+	DST=$1
+	while [ "$2" != "" ]; do
+		ln -s "$DST" "${ROOT_PATH}$2"
+		shift;
+	done;
+}
+
+export -f set_perm_recursive
+export -f set_perm
+export -f symlink
+$2

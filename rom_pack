@@ -1,0 +1,130 @@
+#!/bin/bash
+
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
+USAGE_HELP="Usage: rom_pack <outtype-zip|bin> <project_folder> <hw_target_name> <output-zip|dir>"
+
+fail() {
+	echo "$1"
+	rm -r "$TMP_DIR"
+    exit 1
+}
+
+[ $# -eq 0 ] && fail "$USAGE_HELP"
+[ -z "$1" ] && fail "$USAGE_HELP"
+[ -z "$2" ] && fail "$USAGE_HELP"
+[ -z "$3" ] && fail "$USAGE_HELP"
+[ -z "$4" ] && fail "$USAGE_HELP"
+[ ! -d "$2" ] && fail "Project directory not found"
+
+if [ "$1" != "zip" ]; then
+	if [ "$1" != "bin" ]; then
+		fail "Error: Output type must be zip or bin (lowercase)"
+	fi
+fi
+
+export TMP_DIR=`mktemp -d`
+export OS_PACKAGE="$2/OSPackage"
+export CUST_PACKAGE="$2/CUSTPackage"
+export VTS_PACKAGE="$2/VTSPackage"
+export ZIP_PACKAGE="$2/ZIPPackage"
+
+export HW_TARGET_DIR="$2/HWPackage/$3"
+export HW_PACKAGE="$HW_TARGET_DIR/system"
+export SC_PACKAGE="$HW_TARGET_DIR/scatter"
+export BOOT_DIR="$HW_TARGET_DIR/Other/boot"
+export RECV_DIR="$HW_TARGET_DIR/Other/recovery"
+export PRLD_DIR="$HW_TARGET_DIR/Other/preload"
+export DATA_DIR="$HW_TARGET_DIR/Other/data"
+export CACHE_DIR="$HW_TARGET_DIR/Other/cache"
+export DCHR_FILE="$HW_TARGET_DIR/Other/dumchar_info"
+export PERM_FILE="$2/perm_info"
+
+[ ! -d "$OS_PACKAGE" ] && fail "Error: No OS package found."
+[ ! -d "$HW_PACKAGE" ] && fail "Error: No HW package found."
+[ ! -d "$BOOT_DIR" ] && fail "Error: No boot package found."
+[ ! -d "$SC_PACKAGE" ] && fail "Error: No scatter package found."
+echo "Temp directory is: $TMP_DIR"
+
+if [ "$1" == "zip" ]; then
+	[ ! -d "$ZIP_PACKAGE" ] && fail "Error: No ZIP package found."
+
+	# Genearte ZIP-Related things
+	echo "Copying zip package..."
+	mkdir -p "$TMP_DIR/META-INF/com/google/android"
+	cp -R "$ZIP_PACKAGE/." "$TMP_DIR/META-INF/com/google/android"
+	echo "Copying binaries..."
+	[ -f "$SC_PACKAGE/logo.bin" ] && cp "$SC_PACKAGE/logo.bin" "$TMP_DIR"
+	[ -f "$SC_PACKAGE/lk.bin" ] && cp "$SC_PACKAGE/lk.bin" "$TMP_DIR"
+	[ -f "$SC_PACKAGE/uboot.bin" ] && cp "$SC_PACKAGE/uboot.bin" "$TMP_DIR"
+	echo "Creating boot image..."
+	boot_pack "$BOOT_DIR" "$TMP_DIR/boot.img"
+	if [ -d "$PRLD_DIR" ]; then
+		mkdir "$TMP_DIR/preload"
+		echo "Copying preload package..."
+		cp -R "$PRLD_DIR/." "$TMP_DIR/preload"
+	fi
+
+	rom_gensystem "$TMP_DIR/system"
+
+	OLD_DIR=$PWD
+	cd "$TMP_DIR"
+	zip -r -y -9 "$TMP_DIR/out.zip" ./
+	cd "$OLD_DIR"
+	mv "$TMP_DIR/out.zip" "$4"
+fi
+
+if [ "$1" == "bin" ]; then
+	[ ! -d "$RECV_DIR" ] && fail "Error: No recovery package found."
+	[ ! -f "$DCHR_FILE" ] && fail "Error: Partition table '$DUMCHAR_FILE' not found."
+
+	mkdir -p "$4"
+	rom_gensystem "$TMP_DIR/system"
+	cp -rp "$DATA_DIR/." "$TMP_DIR/data"
+	cp -rp "$CACHE_DIR/." "$TMP_DIR/cache"
+	cp -rp "$PRLD_DIR/." "$TMP_DIR/preload"
+	echo "Creating permissions and symlinks..."
+	rom_ptouch "$TMP_DIR" "$PERM_FILE"
+
+	SYSTEM_SIZE=`dumchar_parse "$DCHR_FILE" android size`
+	[ $? != 0 ] && fail "Error: Unknown system partition size"
+	DATA_SIZE=`dumchar_parse "$DCHR_FILE" usrdata size`
+	[ $? != 0 ] && fail "Error: Unknown data partition size"
+	CACHE_SIZE=`dumchar_parse "$DCHR_FILE" cache size`
+	[ $? != 0 ] && fail "Error: Unknown cache partition size"
+	
+	echo "========LENGTHS OF PARTITIONS========"
+	echo "System:  $SYSTEM_SIZE"
+	echo "Data:    $DATA_SIZE"
+	echo "Cache:   $CACHE_SIZE"
+	if [ -d $PRLD_DIR ]; then
+		PRELOAD_SIZE=`dumchar_parse "$DCHR_FILE" preload size`
+		[ $? != 0 ] && fail "Error: Unknown preload partition size"
+		PACK_PRELOAD=true
+		echo "Preload: $PRELOAD_SIZE"
+	fi
+	echo "====================================="
+	make_ext4fs -s -l $SYSTEM_SIZE -L system -a system "$4/system.img" "$TMP_DIR/system"
+	[ $? != 0 ] && fail "Error: failed to create system image"
+	make_ext4fs -s -l $DATA_SIZE -L userdata -a userdata "$4/userdata.img" "$TMP_DIR/data"
+	[ $? != 0 ] && fail "Error: failed to create cache image"
+	make_ext4fs -s -l $CACHE_SIZE -L cache -a cache "$4/cache.img" "$TMP_DIR/cache"
+	[ $? != 0 ] && fail "Error: failed to create cache image"
+	if [ $PACK_PRELOAD == true ]; then
+		make_ext4fs -s -l $PRELOAD_SIZE -L preload -a preload "$4/preload.img" "$TMP_DIR/preload"
+		[ $? != 0 ] && fail "Error: failed to create preload image"
+	fi
+
+	boot_pack "$BOOT_DIR" "$4/boot.img"
+	[ $? != 0 ] && fail "Error: failed to create boot image"
+	boot_pack "$RECV_DIR" "$4/recovery.img"
+	[ $? != 0 ] && fail "Error: failed to create recovery image"
+
+	echo "Copying scatter package..."
+	cp -R "$SC_PACKAGE/." "$4"
+fi
+
+rm -r "$TMP_DIR"

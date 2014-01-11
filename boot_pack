@@ -1,0 +1,38 @@
+#!/bin/bash
+
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
+fail() {
+	echo "$1"
+    exit 1
+}
+
+[ $# -eq 0 ] && fail "Usage: boot_pack <folder> <output-img>"
+[ -z "$1" ] && fail "Usage: boot_pack <folder> <output-img>"
+[ ! -d "$1" ] && fail "Directory not found"
+
+filename=$(basename "$1")
+if [ -z "$2" ];
+then
+	output="new_$filename.img"
+else
+	output="$2"
+fi
+
+OLD_PWD=$PWD
+
+cd "$1"
+cd ram_disk
+#chgrp -Rv root ./* > /dev/null
+#chmod -Rv 0700 ./* > /dev/null
+
+rm -f ../ram_disk.gz
+find . | cpio -o -H newc | gzip > ../ram_disk.gz
+cd ../..
+rm -f "new_$1.img"
+cd $OLD_PWD
+rbootimg --pack "$1" --output "$output"
+echo ""

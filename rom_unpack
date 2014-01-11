@@ -1,0 +1,169 @@
+#!/bin/bash
+
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
+fail() {
+	echo "$1"
+    exit 1
+}
+
+unpack_sparse_ext4() {
+	[ ! -d "$TMP_MNT" ] && mkdir "$TMP_MNT"
+	[ ! -d "$2" ] && mkdir "$2"
+	echo "Converting sparse '$1' to normal ext4 image..."
+	simg2img "$1" "$1.ext4"
+	echo "Mounting '$1.ext4'..."
+	mount -o loop -t ext4 "$1.ext4" "$TMP_MNT"
+	echo "Copying content of '$1.ext4' to '$2'..."
+	cp -rp "$TMP_MNT/." "$2/"
+	echo "Unmounting '$TMP_MNT'"
+	fuser -km "$TMP_MNT"
+	umount -f "$TMP_MNT"
+	echo `wc -c < "$1.ext4"` > "$3_size"
+	ls -Rl "$2/" > "$3_tree"
+	rm "$1.ext4"
+}
+
+system_mv_hardware() {
+	[ ! -d "$2" ] && mkdir "$2"
+	mkdir "$2/bin"
+	mkdir "$2/etc"
+	mkdir "$2/lib"
+	mkdir "$2/usr"
+	mkdir "$2/vendor"
+	mkdir "$2/xbin"
+
+	mv "$1/etc/firmware" "$2/etc/firmware"
+	mv "$1/etc/fmr" "$2/etc/fmr"
+	mv "$1/etc/mddb" "$2/etc/mddb"
+	mv "$1/etc/permissions" "$2/etc/permissions"
+	mv "$1/etc/wifi" "$2/etc/wifi"
+	mv "$1/etc/vold.fstab" "$2/etc/vold.fstab"
+	mv "$1/etc/vold.fstab.fat.nand" "$2/etc/vold.fstab.fat.nand"
+	mv "$1/etc/vold.fstab.nand" "$2/etc/vold.fstab.nand"
+
+	mv "$1/lib/hw" "$2/lib/hw"
+	mv "$1/lib/modules" "$2/lib/modules"
+
+	mv "$1/usr/keychars" "$2/usr/keychars"
+	mv "$1/usr/keylayout" "$2/usr/keylayout"
+
+	mv "$1/vendor/lib" "$2/vendor/lib"
+}
+
+[ -z "$1" ] && fail "Usage: rom_unpack <path_to_SPFT_rom> <hw_def_target_name> <path_to_output_dir>"
+[ -z "$2" ] && fail "Usage: rom_unpack <path_to_SPFT_rom> <hw_def_target_name> <path_to_output_dir>"
+[ -z "$3" ] && fail "Usage: rom_unpack <path_to_SPFT_rom> <hw_def_target_name> <path_to_output_dir>"
+
+TMP_MNT=/mnt/droid_mnt
+SYS_FILE="$1/system.img"
+USR_FILE="$1/userdata.img"
+CCH_FILE="$1/cache.img"
+PRL_FILE="$1/preload.img"
+BOOT_FILE="$1/boot.img"
+REC_FILE="$1/recovery.img"
+
+HW_TARGET_DIR="$3/HWPackage/$2"
+
+SYS_DIR="$3/OSPackage"
+USR_DIR="$HW_TARGET_DIR/Other/data"
+CCH_DIR="$HW_TARGET_DIR/Other/cache"
+PRL_DIR="$HW_TARGET_DIR/Other/preload"
+BOOT_DIR="$HW_TARGET_DIR/Other/boot"
+REC_DIR="$HW_TARGET_DIR/Other/recovery"
+
+[ -d "$3" ] && fail "Please delete '$3' dir first to select another."
+mkdir -p "$HW_TARGET_DIR"
+mkdir "$HW_TARGET_DIR/Other"
+mkdir "$HW_TARGET_DIR/scatter"
+mkdir "$HW_TARGET_DIR/system"
+
+find "$1" -name "*scatter*" -exec cp {} "$HW_TARGET_DIR/scatter" \;
+find "$1" -name "*EBR*" -exec cp {} "$HW_TARGET_DIR/scatter"\;
+find "$1" -name "*MBR*" -exec cp {} "$HW_TARGET_DIR/scatter" \;
+find "$1" -name "*lk*" -exec cp {} "$HW_TARGET_DIR/scatter" \;
+find "$1" -name "*uboot*" -exec cp {} "$HW_TARGET_DIR/scatter" \;
+find "$1" -name "*preloader*" -exec cp {} "$HW_TARGET_DIR/scatter" \;
+find "$1" -name "*secro*" -exec cp {} "$HW_TARGET_DIR/scatter" \;
+find "$1" -name "*logo*" -exec cp {} "$HW_TARGET_DIR/scatter" \;
+
+if [ -f "$SYS_FILE" ];
+then 
+	echo "File '$SYS_FILE' found. Extracting..."
+	unpack_sparse_ext4 "$SYS_FILE" "$SYS_DIR" "$HW_TARGET_DIR/Other/system"
+	system_mv_hardware "$SYS_DIR" "$HW_TARGET_DIR/system"
+else
+	echo "File '$SYS_FILE' not found. Skipping..."
+fi
+
+if [ -f "$USR_FILE" ];
+then 
+	echo "File '$USR_FILE' found. Extracting..."
+	unpack_sparse_ext4 "$USR_FILE" "$USR_DIR" "$HW_TARGET_DIR/Other/data"
+else
+	echo "File '$USR_FILE' not found. Skipping..."
+fi
+
+if [ -f "$CCH_FILE" ];
+then 
+	echo "File '$CCH_FILE' found. Extracting..."
+	unpack_sparse_ext4 "$CCH_FILE" "$CCH_DIR" "$HW_TARGET_DIR/Other/cache"
+else
+	echo "File '$CCH_FILE' not found. Skipping..."
+fi
+
+if [ -f "$PRL_FILE" ];
+then 
+	echo "File '$PRL_FILE' found. Extracting..."
+	unpack_sparse_ext4 "$PRL_FILE" "$PRL_DIR" "$HW_TARGET_DIR/Other/preload"
+else
+	echo "File '$PRL_FILE' not found. Skipping..."
+fi
+
+if [ -f "$BOOT_FILE" ];
+then 
+	echo "File '$BOOT_FILE' found. Extracting..."
+	boot_unpack "$BOOT_FILE" "$BOOT_DIR"
+else
+	echo "File '$BOOT_FILE' not found. Skipping..."
+fi
+
+if [ -f "$REC_FILE" ];
+then 
+	echo "File '$REC_FILE' found. Extracting..."
+	boot_unpack "$REC_FILE" "$REC_DIR"
+else
+	echo "File '$REC_FILE' not found. Skipping..."
+fi
+
+echo ""
+echo " ====================================== PLEASE READ ====================================== "
+echo ""
+echo " 1) You must manually create a dumchar_info partition table - '$HW_TARGET_DIR/Other/dumchar_info'"
+echo "    You can take it from your device - '/proc/dumchar_info'"
+echo ""
+echo " 2) You must manually create 'permissions+symlinks' mapfile - '$3/perm_info'"
+echo "    It must be an bash-script (make sure that you've defined bash header '#!/bin/bash'"
+echo "    and allowed it to execute. "
+echo "    This file uses imported functions 'set_perm', 'set_perm_recursive' and 'symlink' "
+echo "    Do not use Edify style like:"
+echo ""
+echo '        set_perm(0, 0, 0644, "/system/framework/framework-res.apk");'
+echo ""
+echo "    Use it like:"
+echo ""
+echo '        set_perm 0 0 0644 "/system/framework/framework-res.apk"'
+echo ""
+echo "    Do not forget about backslash in multiline commands:"
+echo ""
+echo '        set_perm 0 0 0644 "/system/framework/framework-res.apk"\'
+echo '					"/system/framework/mediatek-res.apk"\'
+echo '					"/system/framework/theme-res-mint.apk"'
+echo ""
+echo " 3) You must manually fill your ZIPPackage, it's an root of 'META-INF/com/google/android'"
+echo ""
+echo " ========================================================================================= "
+echo ""

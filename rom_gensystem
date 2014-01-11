@@ -1,0 +1,42 @@
+#!/bin/bash
+
+fail() {
+	echo "$1"
+    exit 1
+}
+
+[ $# -eq 0 ] && fail "Usage: rom_gensystem <output_dir> (must be defined vars: OS_PACKAGE, HW_PACKAGE, CUST_PACKAGE, VTS_PACKAGE"
+[ -z "$1" ] && fail "Usage: rom_gensystem <output_dir> (must be defined vars: OS_PACKAGE, HW_PACKAGE, CUST_PACKAGE, VTS_PACKAGE"
+[ ! -d "$OS_PACKAGE" ] && fail "Error: No OS package found."
+[ ! -d "$HW_PACKAGE" ] && fail "Error: No HW package found."
+
+mkdir "$1"
+echo "Copying OS package..."
+cp -R "$OS_PACKAGE/." "$1"
+echo "Copying HW package..."
+cp -R "$HW_PACKAGE/." "$1"
+if [ -d "$CUST_PACKAGE" ]; then
+	echo "Copying custom package..."
+	cp -R "$CUST_PACKAGE/." "$1"
+fi
+
+if [ -d "$VTS_PACKAGE/app" ]; then
+	for app_dir in `ls "$VTS_PACKAGE/app"`
+	do
+		if [ ! -f "$VTS_PACKAGE/app/$app_dir/ignore" ]; then
+			echo "Copying VTS-compiled app: $app_dir"
+			find "$VTS_PACKAGE/app/$app_dir/Binary" -name "*.apk" -exec cp {} "$1/app" \;
+		fi
+	done
+fi
+
+if [ -d "$VTS_PACKAGE/framework" ]; then
+	for fw_dir in `ls "$VTS_PACKAGE/framework"`
+	do
+		if [ ! -f "$VTS_PACKAGE/framework/$fw_dir/ignore" ]; then
+			echo "Copying VTS-compiled framework: $fw_dir"
+			find "$VTS_PACKAGE/framework/$fw_dir/Binary" -name "*.apk" -exec cp {} "$1/framework" \;
+			find "$VTS_PACKAGE/framework/$fw_dir/Binary" -name "*.jar" -exec cp {} "$1/framework" \;
+		fi
+	done
+fi
