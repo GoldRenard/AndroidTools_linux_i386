@@ -5,14 +5,14 @@ fail() {
     exit 1
 }
 
-[ $# -eq 0 ] && fail "Usage: rom_gensystem <output_dir> (must be defined vars: OS_PACKAGE, HW_PACKAGE, CUST_PACKAGE, VTS_PACKAGE"
-[ -z "$1" ] && fail "Usage: rom_gensystem <output_dir> (must be defined vars: OS_PACKAGE, HW_PACKAGE, CUST_PACKAGE, VTS_PACKAGE"
-[ ! -d "$OS_PACKAGE" ] && fail "Error: No OS package found."
+[ $# -eq 0 ] && fail "Usage: rom_gensystem <output_dir> (must be defined vars: OS_DIR, HW_PACKAGE, CUST_PACKAGE, VTS_PACKAGE"
+[ -z "$1" ] && fail "Usage: rom_gensystem <output_dir> (must be defined vars: OS_DIR, HW_PACKAGE, CUST_PACKAGE, VTS_PACKAGE"
+[ ! -d "$OS_DIR" ] && fail "Error: No OS package found."
 [ ! -d "$HW_PACKAGE" ] && fail "Error: No HW package found."
 
 mkdir "$1"
 echo "Copying OS package..."
-cp -R "$OS_PACKAGE/." "$1"
+cp -R "$OS_DIR/." "$1"
 echo "Copying HW package..."
 cp -R "$HW_PACKAGE/." "$1"
 if [ -d "$CUST_PACKAGE" ]; then

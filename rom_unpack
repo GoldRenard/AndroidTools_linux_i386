@@ -12,7 +12,7 @@ fail() {
 
 unpack_sparse_ext4() {
 	[ ! -d "$TMP_MNT" ] && mkdir "$TMP_MNT"
-	[ ! -d "$2" ] && mkdir "$2"
+	[ ! -d "$2" ] && mkdir -p "$2"
 	echo "Converting sparse '$1' to normal ext4 image..."
 	simg2img "$1" "$1.ext4"
 	echo "Mounting '$1.ext4'..."
@@ -68,21 +68,20 @@ REC_FILE="$1/recovery.img"
 
 HW_TARGET_DIR="$3/HWPackage/$2"
 
-SYS_DIR="$3/OSPackage"
-USR_DIR="$HW_TARGET_DIR/Other/data"
-CCH_DIR="$HW_TARGET_DIR/Other/cache"
-PRL_DIR="$HW_TARGET_DIR/Other/preload"
+SYS_DIR="$3/OSPackage/system"
+USR_DIR="$3/OSPackage/data"
+CCH_DIR="$3/OSPackage/cache"
+PRL_DIR="$3/OSPackage/preload"
 BOOT_DIR="$HW_TARGET_DIR/Other/boot"
 REC_DIR="$HW_TARGET_DIR/Other/recovery"
 
 [ -d "$3" ] && fail "Please delete '$3' dir first to select another."
-mkdir -p "$HW_TARGET_DIR"
-mkdir "$HW_TARGET_DIR/Other"
-mkdir "$HW_TARGET_DIR/scatter"
-mkdir "$HW_TARGET_DIR/system"
+mkdir -p "$HW_TARGET_DIR/Other"
+mkdir -p "$HW_TARGET_DIR/scatter"
+mkdir -p "$HW_TARGET_DIR/system"
 
 find "$1" -name "*scatter*" -exec cp {} "$HW_TARGET_DIR/scatter" \;
-find "$1" -name "*EBR*" -exec cp {} "$HW_TARGET_DIR/scatter"\;
+find "$1" -name "*EBR*" -exec cp {} "$HW_TARGET_DIR/scatter" \;
 find "$1" -name "*MBR*" -exec cp {} "$HW_TARGET_DIR/scatter" \;
 find "$1" -name "*lk*" -exec cp {} "$HW_TARGET_DIR/scatter" \;
 find "$1" -name "*uboot*" -exec cp {} "$HW_TARGET_DIR/scatter" \;

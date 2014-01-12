@@ -9,7 +9,7 @@ USAGE_HELP="Usage: rom_pack <outtype-zip|bin> <project_folder> <hw_target_name> 
 
 fail() {
 	echo "$1"
-	rm -r "$TMP_DIR"
+	[ -d "$OS_PACKAGE" ] && rm -r "$TMP_DIR"
     exit 1
 }
 
@@ -37,13 +37,17 @@ export HW_PACKAGE="$HW_TARGET_DIR/system"
 export SC_PACKAGE="$HW_TARGET_DIR/scatter"
 export BOOT_DIR="$HW_TARGET_DIR/Other/boot"
 export RECV_DIR="$HW_TARGET_DIR/Other/recovery"
-export PRLD_DIR="$HW_TARGET_DIR/Other/preload"
-export DATA_DIR="$HW_TARGET_DIR/Other/data"
-export CACHE_DIR="$HW_TARGET_DIR/Other/cache"
+
+export OS_DIR="$OS_PACKAGE/system"
+export DATA_DIR="$OS_PACKAGE/data"
+export CACHE_DIR="$OS_PACKAGE/cache"
+export PRLD_DIR="$OS_PACKAGE/preload"
+
 export DCHR_FILE="$HW_TARGET_DIR/Other/dumchar_info"
 export PERM_FILE="$2/perm_info"
 
 [ ! -d "$OS_PACKAGE" ] && fail "Error: No OS package found."
+[ ! -d "$OS_DIR" ] && fail "Error: No OS folder found."
 [ ! -d "$HW_PACKAGE" ] && fail "Error: No HW package found."
 [ ! -d "$BOOT_DIR" ] && fail "Error: No boot package found."
 [ ! -d "$SC_PACKAGE" ] && fail "Error: No scatter package found."
