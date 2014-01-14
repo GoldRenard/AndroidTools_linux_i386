@@ -79,6 +79,7 @@ if [ "$1" == "zip" ]; then
 	zip -r -y -9 "$TMP_DIR/out.zip" ./
 	cd "$OLD_DIR"
 	mv "$TMP_DIR/out.zip" "$4"
+	rom_sign "$4"
 fi
 
 if [ "$1" == "bin" ]; then
