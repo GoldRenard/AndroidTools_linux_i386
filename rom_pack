@@ -45,12 +45,16 @@ export PRLD_DIR="$OS_PACKAGE/preload"
 
 export DCHR_FILE="$HW_TARGET_DIR/Other/dumchar_info"
 export PERM_FILE="$2/perm_info"
+export ENV_VALUES="$2/env.conf"
+chmod 755 "$PERM_FILE"
+[ -f "$ENV_VALUES" ] && source "$ENV_VALUES"
 
 [ ! -d "$OS_PACKAGE" ] && fail "Error: No OS package found."
 [ ! -d "$OS_DIR" ] && fail "Error: No OS folder found."
 [ ! -d "$HW_PACKAGE" ] && fail "Error: No HW package found."
 [ ! -d "$BOOT_DIR" ] && fail "Error: No boot package found."
 [ ! -d "$SC_PACKAGE" ] && fail "Error: No scatter package found."
+[ ! -f "$PERM_FILE" ] && fail "Error: No permissions file found."
 echo "Temp directory is: $TMP_DIR"
 
 if [ "$1" == "zip" ]; then
@@ -58,8 +62,6 @@ if [ "$1" == "zip" ]; then
 
 	# Genearte ZIP-Related things
 	echo "Copying zip package..."
-	mkdir -p "$TMP_DIR/META-INF/com/google/android"
-	cp -R "$ZIP_PACKAGE/." "$TMP_DIR/META-INF/com/google/android"
 	echo "Copying binaries..."
 	[ -f "$SC_PACKAGE/logo.bin" ] && cp "$SC_PACKAGE/logo.bin" "$TMP_DIR"
 	[ -f "$SC_PACKAGE/lk.bin" ] && cp "$SC_PACKAGE/lk.bin" "$TMP_DIR"
@@ -70,8 +72,14 @@ if [ "$1" == "zip" ]; then
 		mkdir "$TMP_DIR/preload"
 		echo "Copying preload package..."
 		cp -R "$PRLD_DIR/." "$TMP_DIR/preload"
+	else
+		# FOR updater-script generator
+		export NO_PRELOAD=1
 	fi
 
+	mkdir -p "$TMP_DIR/META-INF/com/google/android"
+	cp -R "$ZIP_PACKAGE/." "$TMP_DIR/META-INF/com/google/android"
+	rom_genuscript "$PERM_FILE" "$TMP_DIR/META-INF/com/google/android/updater-script"
 	rom_gensystem "$TMP_DIR/system"
 
 	OLD_DIR=$PWD

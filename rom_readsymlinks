@@ -1,0 +1,35 @@
+#!/bin/bash
+# Файл генерирует список символьных ссылок
+
+USAGE_HELP="Usage: rom_readsymlinks <directory> "
+fail() {
+	echo "$1"
+    exit 1
+}
+
+[ $# -eq 0 ] && fail "$USAGE_HELP"
+[ -z "$1" ] && fail "$USAGE_HELP"
+
+TOOLBOX_LINKS=""
+BUSYBOX_LINKS=""
+while read line           
+do  
+	FILE=${line//"$1"/"/system/"}    
+    if [ `readlink $line` == "toolbox" ]; then
+    	TOOLBOX_LINKS="$TOOLBOX_LINKS \"$FILE\""
+    else
+    	if [ `readlink $line` == "busybox" ]; then
+    		BUSYBOX_LINKS="$BUSYBOX_LINKS \"$FILE\""
+    	else
+    		echo "symlink \"`readlink $line`\" \"$FILE\""
+    	fi
+    fi
+done < <(find $1 -type l -print)
+
+if [ "$TOOLBOX_LINKS" != "" ]; then 
+	echo "symlink \"toolbox\"$TOOLBOX_LINKS"
+fi
+
+if [ "$BUSYBOX_LINKS" != "" ]; then 
+	echo "symlink \"busybox\"$BUSYBOX_LINKS"
+fi

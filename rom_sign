@@ -1,0 +1,14 @@
+#!/bin/sh
+SELF_PATH="$(dirname `which $0`)"
+v=$1
+v=`echo $v | sed s/\.zip/-signed.zip/g`
+echo "$(dirname `which $0`)"
+echo Signing: $1
+echo " "
+echo This may take some time, depending on the but not limited to the size of the rom and/or the hardware you are using
+echo " "
+java -jar "$SELF_PATH/etc/signapk.jar" -w "$SELF_PATH/etc/testkey.x509.pem" "$SELF_PATH/etc/testkey.pk8" $1 $v
+echo " "
+echo Saved as: $v
+echo " "
+

@@ -74,6 +74,7 @@ CCH_DIR="$3/OSPackage/cache"
 PRL_DIR="$3/OSPackage/preload"
 BOOT_DIR="$HW_TARGET_DIR/Other/boot"
 REC_DIR="$HW_TARGET_DIR/Other/recovery"
+PERM_FILE="$3/perm_info"
 
 [ -d "$3" ] && fail "Please delete '$3' dir first to select another."
 mkdir -p "$HW_TARGET_DIR/Other"
@@ -138,15 +139,16 @@ else
 	echo "File '$REC_FILE' not found. Skipping..."
 fi
 
+echo "#!/bin/bash" > "$PERM_FILE"
+rom_readsymlinks "$SYS_DIR" > "$PERM_FILE"
+
 echo ""
 echo " ====================================== PLEASE READ ====================================== "
 echo ""
 echo " 1) You must manually create a dumchar_info partition table - '$HW_TARGET_DIR/Other/dumchar_info'"
 echo "    You can take it from your device - '/proc/dumchar_info'"
 echo ""
-echo " 2) You must manually create 'permissions+symlinks' mapfile - '$3/perm_info'"
-echo "    It must be an bash-script (make sure that you've defined bash header '#!/bin/bash'"
-echo "    and allowed it to execute. "
+echo " 2) You must manually fill permissions into mapfile - '$3/perm_info'"
 echo "    This file uses imported functions 'set_perm', 'set_perm_recursive' and 'symlink' "
 echo "    Do not use Edify style like:"
 echo ""
